@@ -1,0 +1,234 @@
+#include "Math/Minimizer.h"
+#include "Math/Factory.h"
+#include "Math/Functor.h"
+#include "TRandom3.h"
+#include "TError.h"
+#include "TFile.h"
+#include "RooFit.h"
+#include "RooRealVar.h"
+#include "RooDataHist.h"
+#include "RooHistPdf.h"
+#include "RooDataSet.h"
+#include "RooArgSet.h"
+#include "RooAddPdf.h"
+#include "TMath.h"
+#include <iostream>
+#include "RestFrames/RestFrames.hh"
+
+using namespace RestFrames;
+using namespace RooFit;
+using namespace std;
+
+RooRealVar g_Mass = RooRealVar("g_Mass","g_Mass",20.0,990.0);
+RooRealVar g_CosDecayAngle = RooRealVar("g_CDA","g_CDA",0.0,-1.0,1.0);
+RooDataSet* g_combinedDist = NULL;
+vector<Double_t> g_massVector;
+vector<Double_t> g_cosDecayAngleVector;
+vector<RooAbsPdf*> g_PDFs;
+vector<Double_t> g_Norm;
+double genCombined = 0;
+
+double NLL(const double *param)
+{
+  int nData = g_massVector.size();
+  int nComp = g_PDFs.size();
+
+  double ret = 0;
+  double logsum;
+  Double_t entry;
+  
+  for(Int_t e = 0; e < nData; e++){
+    logsum = 0;
+    g_Mass.setVal(g_massVector[e]);
+    g_CosDecayAngle.setVal(g_cosDecayAngleVector[e]);
+    
+    for(int c = 0; c < nComp; c++){
+      entry = g_PDFs[c]->getVal();
+      // printf("%f\n",entry);
+      logsum += param[c]*entry*g_Norm[c];
+    }
+    
+    ret -= log(logsum);
+  }
+  
+  for(int c = 0; c < nComp; c++)
+    ret += param[c];
+  
+  return ret;
+}
+ 
+int NumericalMinimization(const char * minName,
+                          const char *algoName = "Combined" ,
+                          int randomSeed = -1)
+{
+   // create minimizer giving a name and a name (optionally) for the specific
+   // algorithm
+   // possible choices are:
+   //     minName                  algoName
+   // Minuit /Minuit2             Migrad, Simplex,Combined,Scan  (default is Migrad)
+   //  Minuit2                     Fumili2
+   //  Fumili
+   //  GSLMultiMin                ConjugateFR, ConjugatePR, BFGS,
+   //                              BFGS2, SteepestDescent
+   //  GSLMultiFit
+   //   GSLSimAn
+   //   Genetic
+   ROOT::Math::Minimizer* min =
+      ROOT::Math::Factory::CreateMinimizer(minName, algoName);
+
+   // set tolerance , etc...
+   min->SetMaxFunctionCalls(1000000); // for Minuit/Minuit2
+   min->SetMaxIterations(10000);  // for GSL
+   min->SetTolerance(0.00001);
+   min->SetPrintLevel(1);
+
+   // create function wrapper for minmizer
+   // a IMultiGenFunction type
+   ROOT::Math::Functor f(&NLL,3);
+   double step[3] = {0.01,0.01,0.01};
+   // starting point
+
+   double variable[3] = { 10., 20., 40.};
+
+   min->SetFunction(f);
+
+   // Set the free variables to be minimized!
+   min->SetVariable(0,"A",variable[0], step[0]);
+   min->SetVariable(1,"B",variable[1], step[1]);
+   min->SetVariable(2,"C",variable[2], step[2]);
+
+   // do the minimize!
+   min->Minimize();
+
+   const double *xs = min->X();
+   cout << "Minimum: f(" << xs[0] << "," << xs[1] << "): "
+             << min->MinValue()  << endl;
+
+   // expected minimum is 0
+   if ( min->MinValue()  < 1.E-4  && f(xs) < 1.E-4)
+      cout << "Minimizer " << minName << " - " << algoName
+                << " converged to the right minimum" << endl;
+   else {
+      cout << "Minimizer " << minName << " - " << algoName
+                << " failed to converge !!!" << endl;
+      Error("NumericalMinimization","fail to converge");
+   }
+
+   return 0;
+}
+
+void Minimizer2D(){
+
+  TFile* fOpen = TFile::Open("/home/osboxes/RestFrames/DecayDS.root");
+
+  RooDataSet* DecayAData = (RooDataSet*) fOpen->Get("DecayAData");
+  RooDataSet* DecayBData = (RooDataSet*) fOpen->Get("DecayBData");
+  RooDataSet* DecayCData = (RooDataSet*) fOpen->Get("DecayCData");
+  
+  cout << "Data sets uploaded from DecayDS.root!" << endl;
+  
+  g_PDFs.clear();
+  g_Norm.clear();
+
+  RooDataHist DecayAHist("DecayAHist","DecayAHist",RooArgSet(g_Mass,g_CosDecayAngle),*DecayAData);
+  RooHistPdf DecayAFit("DecayAFit","DecayAFit",RooArgSet(g_Mass,g_CosDecayAngle),DecayAHist);
+  g_PDFs.push_back(&DecayAFit);
+  g_Norm.push_back(DecayAFit.getNorm(RooArgSet(g_Mass,g_CosDecayAngle)));
+
+  cout << "Decay A fit created!" << endl;
+  
+  RooDataHist DecayBHist("DecayBHist","DecayBHist",RooArgSet(g_Mass,g_CosDecayAngle),*DecayBData);
+  RooHistPdf DecayBFit("DecayBFit","DecayBFit",RooArgSet(g_Mass,g_CosDecayAngle),DecayBHist);
+  g_PDFs.push_back(&DecayBFit);
+  g_Norm.push_back(DecayBFit.getNorm(RooArgSet(g_Mass,g_CosDecayAngle)));
+
+  cout << "Decay B fit created!" << endl;
+  
+  RooDataHist DecayCHist("DecayCHist","DecayCHist",RooArgSet(g_Mass,g_CosDecayAngle),*DecayCData);
+  RooHistPdf DecayCFit("DecayCFit","DecayCFit",RooArgSet(g_Mass,g_CosDecayAngle),DecayCHist);
+  g_PDFs.push_back(&DecayCFit);
+  g_Norm.push_back(DecayCFit.getNorm(RooArgSet(g_Mass,g_CosDecayAngle)));
+
+  cout << "PDFs generated!" << endl;
+   
+  RooRealVar pA("pA","pA",1./3.,0.,1000000.);
+  RooRealVar pB("pB","pB",1./3.,0.,1000000.);
+  RooRealVar pC("pC","pC",1./3.,0.,1000000.);
+ 
+  const double tempA = pA.getValV();
+  const double tempB = pB.getValV();
+  const double tempC = pC.getValV();
+    
+  double med[3];
+    
+  med[0] = tempA/(tempA+tempB+tempC);
+  med[1] = tempB/(tempA+tempB+tempC);
+  med[2] = tempC/(tempA+tempB+tempC);
+
+  cout << "Setting ratios as parameters" << endl;
+  
+  RooAddPdf combined("combined","combined", RooArgSet(DecayAFit,DecayBFit,DecayCFit),RooArgList(pA,pB,pC));
+
+  cout << "How many events do you want to include in the combined distribution?" << endl;
+
+  cin >> genCombined;
+  
+  RooDataSet * g_combinedDist = new RooDataSet("g_combinedDist","g_combinedDist",RooArgSet(g_Mass,g_CosDecayAngle));
+  
+  double r = 0.0;
+  int cat = 0;
+  const RooArgSet * holder;
+  for(int i=0; i<genCombined; i++)
+    {
+      TRandom3 * gRandom = new TRandom3(0);
+      r = gRandom->Rndm();
+      if(r < med[0])
+	{
+	  cat = 0;
+	}
+      else if(r < med[0] + med[1])
+	{
+	  cat = 1;
+	}
+      else
+	{
+	  cat = 2;
+	}
+      
+      r = gRandom->Rndm();
+      if(cat == 0)
+	{
+	  holder = DecayAData->get(int(r * DecayAData->numEntries()));
+	  g_combinedDist->add(*holder);
+	}
+
+      else if(cat == 1)
+	{
+	  holder = DecayBData->get(int(r * DecayBData->numEntries()));
+	  g_combinedDist->add(*holder);
+	}
+
+      else
+	{
+	  holder = DecayCData->get(int(r * DecayCData->numEntries()));
+	  g_combinedDist->add(*holder);
+	}
+    }
+
+  cout << "Events categorized" << endl;
+  
+  g_massVector.clear();
+  g_cosDecayAngleVector.clear();
+    
+  for(int i=0; i<genCombined; i++)
+    {
+      g_massVector.push_back(g_combinedDist->get(i)->getRealValue("g_Mass"));
+      g_cosDecayAngleVector.push_back(g_combinedDist->get(i)->getRealValue("g_CDA"));
+    }
+
+  combined.fitTo(*g_combinedDist, Extended(true));
+  cout << "Combined distribution fitted..." << endl;
+  
+  NumericalMinimization("Minuit");
+
+}
