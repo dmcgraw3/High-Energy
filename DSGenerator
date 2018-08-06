@@ -1,0 +1,235 @@
+#include "TRandom2.h"
+#include "TError.h"
+#include "TFile.h"
+#include "TFile.h"
+#include "TTree.h"
+#include "RooFit.h"
+#include "RooRealVar.h"
+#include "RooNDKeysPdf.h"
+#include "RooAbsPdf.h"
+#include "RooAbsArg.h"
+#include "RooKeysPdf.h"
+#include "RooDataSet.h"
+#include "RooArgSet.h"
+#include "RooAddPdf.h"
+#include <iostream>
+#include "RestFrames/RestFrames.hh"
+
+using namespace RestFrames;
+using namespace RooFit;
+using namespace std;
+
+void DSGenerator()
+{
+  SetStyle();
+
+  RooRealVar g_Mass = RooRealVar("g_Mass","g_Mass",20.0,990.0);
+  RooRealVar g_CosDecayAngle = RooRealVar("g_CDA","g_CDA",0.0,-1.0,1.0);
+  
+   // same total mass
+  double mD0 = 1000.;
+
+  // three separate cases
+  double mD1a = 300.0;
+  double wD1a = 50.;
+  
+  double mD1b = 500.0;
+  double wD1b = 50.;
+  
+  double mD1c = 700.0;
+  double wD1c = 50.;
+  
+  double m1 = 10.;
+  double m2 = 10.;
+  double m3 = 10.;
+
+  int genEvents = 0;
+
+  cout << "How many events would you like to generate?" << endl;
+  cin >> genEvents;
+
+  /////////////////////////////////////////////////////////////////////////
+  g_Log << LogInfo << "Welcome to Thunderdome..." << LogEnd;
+  /////////////////////////////////////////////////////////////////////////
+
+  LabGenFrame LAB_Ga("LAB_Ga", "LAB");
+  DecayGenFrame D0_Ga("D0_Ga", "D_{0}");
+  ResonanceGenFrame D1_Ga("D1_Ga", "D_{1}");
+  VisibleGenFrame V1_Ga("V1_Ga", "V_{1}");
+  VisibleGenFrame V2_Ga("V2_Ga", "V_{2}");
+  VisibleGenFrame V3_Ga("V3_Ga", "V_{3}");
+
+  LabGenFrame LAB_Gb("LAB_Gb", "LAB");
+  DecayGenFrame D0_Gb("D0_Gb", "D_{0}");
+  ResonanceGenFrame D1_Gb("D1_Gb", "D_{1}");
+  VisibleGenFrame V1_Gb("V1_Gb", "V_{1}");
+  VisibleGenFrame V2_Gb("V2_Gb", "V_{2}");
+  VisibleGenFrame V3_Gb("V3_Gb", "V_{3}");
+
+  LabGenFrame LAB_Gc("LAB_Gc", "LAB");
+  DecayGenFrame D0_Gc("D0_Gc", "D_{0}");
+  ResonanceGenFrame D1_Gc("D1_Gc", "D_{1}");
+  VisibleGenFrame V1_Gc("V1_Gc", "V_{1}");
+  VisibleGenFrame V2_Gc("V2_Gc", "V_{2}");
+  VisibleGenFrame V3_Gc("V3_Gc", "V_{3}");
+
+  LAB_Ga.SetChildFrame(D0_Ga); //Setting LabFrames to respective DecayGenFrames
+  LAB_Gb.SetChildFrame(D0_Gb);
+  LAB_Gc.SetChildFrame(D0_Gc);
+
+  //Adding respective ChildFrames to DecayGenFrames
+  D0_Ga.AddChildFrame(D1_Ga); D0_Ga.AddChildFrame(V3_Ga);
+  D0_Gb.AddChildFrame(D1_Gb); D0_Gb.AddChildFrame(V1_Gb);
+  D0_Gc.AddChildFrame(D1_Gc); D0_Gc.AddChildFrame(V2_Gc);
+
+  //Adding respective ChildFrames to ResonanceGenFrames
+  D1_Ga.AddChildFrame(V1_Ga); D1_Ga.AddChildFrame(V2_Ga); 
+  D1_Gb.AddChildFrame(V2_Gb); D1_Gb.AddChildFrame(V3_Gb);
+  D1_Gc.AddChildFrame(V1_Gc); D1_Gc.AddChildFrame(V3_Gc);
+
+  D0_Ga.SetMass(mD0);
+  D0_Gb.SetMass(mD0);
+  D0_Gc.SetMass(mD0);
+  
+  D1_Ga.SetMass(mD1a); D1_Ga.SetWidth(wD1a);
+  D1_Gb.SetMass(mD1b); D1_Gb.SetWidth(wD1b);
+  D1_Gc.SetMass(mD1c); D1_Gc.SetWidth(wD1c);
+
+  V1_Ga.SetMass(m1); V2_Ga.SetMass(m2); V3_Ga.SetMass(m3);
+  V1_Gb.SetMass(m1); V2_Gb.SetMass(m2); V3_Gb.SetMass(m3);
+  V1_Gc.SetMass(m1); V2_Gc.SetMass(m2); V3_Gc.SetMass(m3);
+
+  LAB_Ga.InitializeTree();
+  LAB_Gb.InitializeTree();
+  LAB_Gc.InitializeTree();
+  
+  LAB_Ga.InitializeAnalysis();
+  LAB_Gb.InitializeAnalysis();
+  LAB_Gc.InitializeAnalysis();
+
+  /////////////////////////////////////////////////////////////////////////////////////////
+  g_Log << LogInfo << "Initializing reconstruction frames and trees..." << LogEnd;
+  /////////////////////////////////////////////////////////////////////////////////////////
+
+  LabRecoFrame LAB_Ra("LAB_Ra", "LAB");
+  DecayRecoFrame D0_Ra("D0_Ra", "D_{0}");
+  DecayRecoFrame D1_Ra("D1_Ra", "D_{1}");
+  VisibleRecoFrame V1_Ra("V1_Ra", "V_{1}");
+  VisibleRecoFrame V2_Ra("V2_Ra", "V_{2}");
+  VisibleRecoFrame V3_Ra("V3_Ra", "V_{3}");
+
+  LabRecoFrame LAB_Rb("LAB_Rb", "LAB");
+  DecayRecoFrame D0_Rb("D0_Rb", "D_{0}");
+  DecayRecoFrame D1_Rb("D1_Rb", "D_{1}");
+  VisibleRecoFrame V1_Rb("V1_Rb", "V_{1}");
+  VisibleRecoFrame V2_Rb("V2_Rb", "V_{2}");
+  VisibleRecoFrame V3_Rb("V3_Rb", "V_{3}");
+
+  LabRecoFrame LAB_Rc("LAB_Rc", "LAB");
+  DecayRecoFrame D0_Rc("D0_Rc", "D_{0}");
+  DecayRecoFrame D1_Rc("D1_Rc", "D_{1}");
+  VisibleRecoFrame V1_Rc("V1_Rc", "V_{1}");
+  VisibleRecoFrame V2_Rc("V2_Rc", "V_{2}");
+  VisibleRecoFrame V3_Rc("V3_Rc", "V_{3}");
+
+  LAB_Ra.SetChildFrame(D0_Ra); //To DecayRecoFrames
+  LAB_Rb.SetChildFrame(D0_Rb);
+  LAB_Rc.SetChildFrame(D0_Rc);
+
+  //To DecayRecoFrames
+  D0_Ra.AddChildFrame(D1_Ra); D0_Ra.AddChildFrame(V3_Ra);
+  D0_Rb.AddChildFrame(D1_Rb); D0_Rb.AddChildFrame(V1_Rb);
+  D0_Rc.AddChildFrame(D1_Rc); D0_Rc.AddChildFrame(V2_Rc);
+
+  //To ResonanceRecoFrames
+  D1_Ra.AddChildFrame(V1_Ra); D1_Ra.AddChildFrame(V2_Ra);
+  D1_Rb.AddChildFrame(V2_Rb); D1_Rb.AddChildFrame(V3_Rb);
+  D1_Rc.AddChildFrame(V1_Rc); D1_Rc.AddChildFrame(V3_Rc);
+
+  LAB_Ra.InitializeTree();
+  LAB_Rb.InitializeTree();
+  LAB_Rc.InitializeTree();
+
+  //set masses for gen trees
+  
+  LAB_Ra.InitializeAnalysis();
+  LAB_Rb.InitializeAnalysis();
+  LAB_Rc.InitializeAnalysis();
+
+  RooDataSet *DecayAData = new RooDataSet("DecayAData","DecayAData",RooArgSet(g_Mass,g_CosDecayAngle));
+  RooDataSet *DecayBData = new RooDataSet("DecayBData","DecayBData",RooArgSet(g_Mass,g_CosDecayAngle));
+  RooDataSet *DecayCData = new RooDataSet("DecayCData","DecayCData",RooArgSet(g_Mass,g_CosDecayAngle));
+  
+  for(int igen = 0; igen < genEvents; igen++){
+    if(igen%((std::max(genEvents,10))/10) == 0)
+      g_Log << LogInfo << "Generating event " << igen << " of " << genEvents << LogEnd;
+
+    //// event-by-event GEN info
+    LAB_Ga.ClearEvent();
+    LAB_Gb.ClearEvent();
+    LAB_Gc.ClearEvent();
+
+    //D1_Ga.SetMass(gRandom -> Gaus(300,25));
+
+    while (LAB_Ga.InitializeAnalysis() == false){
+      D1_Ga.SetMass(gRandom->Gaus(300,50));
+    }
+
+    //D1_Gb.SetMass(gRandom -> Gaus(500,25));
+
+    while(LAB_Gb.InitializeAnalysis() == false){
+      D1_Gb.SetMass(gRandom->Gaus(500,50));
+    }
+
+    //D1_Gc.SetMass(gRandom -> Gaus(700,25));
+    
+    while(LAB_Gc.InitializeAnalysis() == false){
+      D1_Gc.SetMass(gRandom->Gaus(700,50));
+    }
+
+    LAB_Ga.AnalyzeEvent();
+    LAB_Gb.AnalyzeEvent();
+    LAB_Gc.AnalyzeEvent();
+    ////
+
+    //// reconstruct the event
+    LAB_Ra.ClearEvent();
+    V1_Ra.SetLabFrameFourVector(V1_Ga.GetFourVector());
+    V2_Ra.SetLabFrameFourVector(V2_Ga.GetFourVector());
+    V3_Ra.SetLabFrameFourVector(V3_Ga.GetFourVector());
+    LAB_Ra.AnalyzeEvent();
+    
+    LAB_Ra.ClearEvent();
+    V1_Ra.SetLabFrameFourVector(V1_Gb.GetFourVector());
+    V2_Ra.SetLabFrameFourVector(V2_Gb.GetFourVector());
+    V3_Ra.SetLabFrameFourVector(V3_Gb.GetFourVector());
+    LAB_Ra.AnalyzeEvent();
+
+    LAB_Ra.ClearEvent();
+    V1_Ra.SetLabFrameFourVector(V1_Gc.GetFourVector());
+    V2_Ra.SetLabFrameFourVector(V2_Gc.GetFourVector());
+    V3_Ra.SetLabFrameFourVector(V3_Gc.GetFourVector());
+    LAB_Ra.AnalyzeEvent();
+
+    g_Mass.setVal(D1_Ra.GetMass());
+    g_CosDecayAngle.setVal(D1_Ra.GetCosDecayAngle());
+    DecayAData->add(RooArgSet(g_Mass,g_CosDecayAngle));
+  
+    g_Mass.setVal(D1_Ra.GetMass());
+    g_CosDecayAngle.setVal(D1_Ra.GetCosDecayAngle());
+    DecayBData->add(RooArgSet(g_Mass,g_CosDecayAngle));
+   
+    g_Mass.setVal(D1_Ra.GetMass());
+    g_CosDecayAngle.setVal(D1_Ra.GetCosDecayAngle());
+    DecayCData->add(RooArgSet(g_Mass,g_CosDecayAngle));
+  }
+  
+  TFile fOut("DecayDS.root", "RECREATE");
+  DecayAData->Write("DecayAData", TObject::kOverwrite);
+  DecayBData->Write("DecayBData", TObject::kOverwrite);
+  DecayCData->Write("DecayCData", TObject::kOverwrite);
+  fOut.Close();
+
+  cout << "Events successfully stored to DecayDS.root!" << endl;
+  
+}
